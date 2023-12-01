@@ -1,0 +1,7 @@
+**/target/**
+._.DS_Store
+.DS_Store
+._target
+.cmake
+**/build/**
+
