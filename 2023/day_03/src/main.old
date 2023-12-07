@@ -1,0 +1,204 @@
+use core::num;
+use std::{collections::HashSet, ops::RemAssign};
+
+
+
+fn is_symbol(c: char) -> bool {
+    !c.is_alphanumeric() && c != '.'
+}
+
+
+fn process_line(buffer: &Vec<Vec<i32>>, surrounding_numbers: &mut HashSet<i32>) -> u32 {
+    let mut sum = 0;
+
+    if buffer.len() != 3 {
+        return 0
+    }
+
+    let line_len = buffer[1].len();
+
+    // iterate buffer[1] (middle row) by char and index
+    for (i, &x) in buffer[1].iter().enumerate() {
+        if x >= 0 {
+            continue;
+        }
+
+        // println!( "\nfound symbol");
+
+        // collect number indexes from the 8 surrounding cells
+        // and add into a SET
+        // let mut surrounding_numbers: HashSet<i32> = HashSet::new();
+
+        // left column
+        if i > 0 {
+            let tl = buffer[0][i - 1];
+            if tl > 0 {
+                surrounding_numbers.insert(tl);
+            }
+
+            let lef = buffer[1][i - 1];
+            if lef > 0 {
+                surrounding_numbers.insert(lef);
+            }
+
+            let bl = buffer[2][i - 1];
+            if bl > 0 {
+                surrounding_numbers.insert(bl);
+            }
+        }
+
+        // right column
+        if i < line_len - 1 {
+            let tr = buffer[0][i + 1];
+            if tr > 0 {
+                surrounding_numbers.insert(tr);
+            }
+
+            let rig = buffer[1][i + 1];
+            if rig > 0 {
+                surrounding_numbers.insert(rig);
+            }
+
+            let br = buffer[2][i + 1];
+            if br > 0 {
+                surrounding_numbers.insert(br);
+            }
+        }
+
+        //  top
+        let top = buffer[0][i];
+        if top > 0 {
+            surrounding_numbers.insert(top);
+        }
+
+        // bottom 
+        let bot = buffer[2][i];
+        if bot > 0 {
+            surrounding_numbers.insert(bot);
+        }
+
+        // sum the numbers in the set by iterating over the set
+        // print!("\nAdding numbers: ");
+        for &num_idx in surrounding_numbers.iter() {
+            let num = numbers[num_idx as usize];
+        //     print!(" + {} ", num);
+            sum += num;
+        }
+    }
+
+    sum
+}
+
+fn encode_numbers_from_line(line: &String, numbers: &mut Vec<u32>) -> Vec<i32> {
+    let mut encoded_line: Vec<i32> = Vec::new();
+    let mut number = None;
+
+    let mut num_idx: i32 = numbers.len() as i32;        // index into numbers vector
+    for c in line.chars() {
+        if c.is_digit(10) {
+            if number.is_none() {
+                number = Some(0);
+            }
+            number = Some(number.unwrap()*10 + c.to_digit(10).unwrap());
+
+            encoded_line.push(num_idx);
+        } else {
+            if number.is_some() {
+                numbers.push(number.unwrap());
+                number = None;
+                num_idx = numbers.len() as i32;
+            }
+
+            if is_symbol(c) {
+                encoded_line.push(-1);
+            } else {
+                if c != '.' {
+                    println!("Unexpected Character {}", c);
+                }
+                encoded_line.push(0);
+            }
+        }
+    }
+
+    return encoded_line;
+}
+
+fn sum_part_numbers(input: &str) -> u32 {
+    let mut sum = 0;
+
+    // make a vector of numbers 
+    // read them from the input and replace all the locations
+    // of the number with the index.  replace symbols with -1
+    // and placeholders ('.') with 0
+    let mut numbers: Vec<u32> = Vec::new();
+    numbers.push(0);     // 0 is a placeholder for no number -- all indices are positive
+
+    // keep a 3 line buffer from input
+    let mut buffer: Vec<Vec<i32>> = Vec::new();
+    let line_length = input.lines().next().unwrap().trim().to_string().len();
+    let pad_line: Vec<i32> = vec![0; line_length];
+    buffer.push(pad_line.clone());
+    
+    let mut surrounding_numbers: HashSet<i32> = HashSet::new();
+
+    for line in input.lines() {
+        let line = line.trim().to_string();
+        // process the line
+        let row = encode_numbers_from_line(&line, &mut numbers);
+        buffer.push(row);
+        if buffer.len() > 3 {
+            buffer.remove(0);
+        }
+
+        print!("\n{}", line);
+        sum += process_line(&buffer, &mut surrounding_numbers);
+    }
+    buffer.push(pad_line.clone());
+    if buffer.len() > 3 {    
+        buffer.remove(0);
+    }
+    sum += process_line(&buffer, &mut surrounding_numbers);
+    println!("sum 1 : {}", sum);
+    
+    // sum as u32
+    sum = 0;
+    // print!("\nAdding numbers: ");
+    for &num_idx in surrounding_numbers.iter() {
+        let num = numbers[num_idx as usize];
+        // print!(" + {} ", num);
+        sum += num;
+    }
+
+    sum
+}
+
+
+fn main() {
+    let input  = include_str!("../input.txt");
+
+    let sum = sum_part_numbers(input);
+    println!("\nSum of part numbers: {}", sum);
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sum_part_numbers() {
+        let input =
+            "467..114..
+            ...*......
+            ..35..633.
+            ......#...
+            617*......
+            .....+.58.
+            ..592.....
+            ......755.
+            ...$.*....
+            .664.598..";
+
+        assert_eq!(sum_part_numbers(input), 4361);
+    }
+}
