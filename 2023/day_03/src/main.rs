@@ -91,17 +91,8 @@ fn sum_part_numbers(input: &str) -> u32 {
         buffer.remove(0);
     }
     all_sum += find_used_parts(&buffer, &mut part_numbers);
-    println!("***USE THIS ONE*** All sum: {}", all_sum);
 
-    // sum the parts list SET
-    println!("Summing part numbers");
-    let mut sum: u32 = 0;
-    for part in part_numbers {
-        print!("{} ", part);
-        sum += part as u32;
-    }
-    println!("\n= {}", sum);
-    sum
+    all_sum
 }
 
 
@@ -132,5 +123,11 @@ mod tests {
             .664.598..";
 
         assert_eq!(sum_part_numbers(input), 4361);
+    }
+
+    #[test]
+    fn test_part_1() {
+        let input = include_str!("../input.txt");
+        assert_eq!(sum_part_numbers(input), 527364);
     }
 }
