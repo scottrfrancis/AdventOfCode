@@ -106,7 +106,7 @@ fn lowest_location(input: &str) -> u32 {
 }
 
 fn lowest_with_seed(input: &str) -> u32 {
-    let mut lowest_location = u32::MAX;
+    let mut lowest_location: u32 = u32::MAX;
 
     let mut maps: HashMap<&str, Map<u32>> = HashMap::new();
     read_maps(input, &mut maps);
@@ -188,6 +188,57 @@ fn lowest_with_seed(input: &str) -> u32 {
     lowest_location
 }
 
+fn lowest_seed_from_ranges(input: &str) -> u32 {
+    let mut lowest_location: u32 = u32::MAX;
+
+    let mut maps: HashMap<&str, Map<u32>> = HashMap::new();
+    read_maps(input, &mut maps);
+
+    // extract seed range from seed map
+    let seed_map = maps.remove("seeds").unwrap();
+    assert!(seed_map.source.len() > 0);
+
+    let df = DataFrame::new(vec![
+        Series::new("dst", seed_map.destination), 
+        Series::new("range", seed_map.range)]).unwrap();
+    let sdf = df.sort(["dst", "range"], false, true).unwrap();
+    let seed_starts = sdf.column("dst").unwrap();
+    let ranges = sdf.column("range").unwrap();
+    let mut seed_ranges: Vec<(u32, u32)> = Vec::new();
+    assert_eq!(seed_starts.len(), ranges.len());
+    for i in 1..seed_starts.len() {
+        seed_ranges.push(
+            (seed_starts.u32().expect("not u32").get(i).expect("was Null"),
+            ranges.u32().expect("not u32").get(i).expect("was Null"))
+        );            
+    }
+    // seed_ranges now has tuples of start and length
+
+    for seed_range in seed_ranges.iter() {
+        println!("seed range: {} to {}", seed_range.0, seed_range.0 + seed_range.1);
+        for seed in seed_range.0..seed_range.0 + seed_range.1 {
+            let mut dst = seed;
+
+            for map_name in map_sequence.iter() {
+                // println!("{} at {}", map_name, dst);
+                let map = maps.get(map_name).unwrap();
+                let val = interpolate_map(&map.source, &map.destination, &map.range, dst);
+                if let Some(val) = val {
+                    dst = val;
+                } else {
+                    println!("No value found for {} at {}", map_name, dst);
+                    break;
+                }
+            }
+            // println!("seed {} at location {}", seed, dst);
+            if dst < lowest_location {
+                lowest_location = dst;
+            }
+        }   
+    }
+
+    lowest_location
+}
 
 fn interpolate_map(src: &Vec<u32>, dst: &Vec<u32>, range: &Vec<u32>, x: u32) -> Option<u32> {
     let val: Option<u32>; // = None;
@@ -230,7 +281,7 @@ fn interpolate_map(src: &Vec<u32>, dst: &Vec<u32>, range: &Vec<u32>, x: u32) -> 
 
 fn main() {
     let input  = include_str!("../input.txt");
-    let result = lowest_with_seed(input);
+    let result = lowest_seed_from_ranges(input);
     println!("Lowest location: {}", result);
 }
 
@@ -316,6 +367,11 @@ mod tests {
     fn test_part1() {
         let input = include_str!("../input.txt");
         assert_eq!(lowest_location(input), 178159714);
+    }
+
+    #[test]
+    fn test_seed_ranges() {
+        assert_eq!(lowest_seed_from_ranges(INPUT), 46);
     }
 
     #[test]
