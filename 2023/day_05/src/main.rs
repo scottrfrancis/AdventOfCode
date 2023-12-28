@@ -283,6 +283,9 @@ fn main() {
     let input  = include_str!("../input.txt");
     let result = lowest_seed_from_ranges(input);
     println!("Lowest location: {}", result);
+
+    // answer : 100165128
+    // really should make a test case
 }
 
 
