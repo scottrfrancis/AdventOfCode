@@ -2,9 +2,10 @@
  * 
  */
 
+ use core::cmp::Ordering;
 
  // define the hand types
- #[derive(Debug, PartialEq)]
+ #[derive(Debug, PartialEq, PartialOrd, Eq, Ord)]
  enum HandType {
     HighCard,
     OnePair,
@@ -19,26 +20,33 @@
     FiveOfAKind,
 }
 
+fn get_card_rank(card: u8) -> u8 {
+    match card {
+        b'2' => 0,
+        b'3' => 1,
+        b'4' => 2,
+        b'5' => 3,
+        b'6' => 4,
+        b'7' => 5,
+        b'8' => 6,
+        b'9' => 7,
+        b'T' => 8,
+        b'J' => 9,
+        b'Q' => 10,
+        b'K' => 11,
+        b'A' => 12,
+        _ => {
+            println!("Invalid card: {}", card as char);
+            panic!("Invalid card")
+        },
+    }
+}
+
 fn get_hand_type(hand: &str) -> HandType {
     // iterate hand and count the number of each card
     let mut card_counts: Vec<u32> = vec![0; 13];
     for card in hand.chars() {
-        match card as u8 {
-            b'2' => card_counts[0] += 1,
-            b'3' => card_counts[1] += 1,
-            b'4' => card_counts[2] += 1,
-            b'5' => card_counts[3] += 1,
-            b'6' => card_counts[4] += 1,
-            b'7' => card_counts[5] += 1,
-            b'8' => card_counts[6] += 1,
-            b'9' => card_counts[7] += 1,
-            b'T' => card_counts[8] += 1,
-            b'J' => card_counts[9] += 1,
-            b'Q' => card_counts[10] += 1,
-            b'K' => card_counts[11] += 1,
-            b'A' => card_counts[12] += 1,
-            _ => panic!("Invalid card"),
-        }
+        card_counts[get_card_rank(card as u8) as usize] += 1;
     }
 
     // check the hand type
@@ -79,9 +87,67 @@ fn get_hand_type(hand: &str) -> HandType {
     HandType::HighCard
 }
 
+// returns true if hand1 is better (>) than hand2
+fn hand_is_better(hand1: &str, hand2: &str) -> bool {
+    let type1 = get_hand_type(hand1);
+    let type2 = get_hand_type(hand2);
+
+    match type1.cmp(&type2) {
+        Ordering::Greater => return true,
+        Ordering::Less => return false,
+        Ordering::Equal => (),
+    }
+
+    assert!(type1 == type2);
+    // compare letter by letter
+    let mut chars2 = hand2.chars();
+    for c1 in hand1.chars() {
+        let Some(c2) = chars2.next() else {
+            return true;
+        };
+        
+        let rank1 = get_card_rank(c1 as u8);
+        let rank2 = get_card_rank(c2 as u8);
+
+        match rank1.cmp(&rank2) {
+            Ordering::Greater => return true,
+            Ordering::Less => return false,
+            Ordering::Equal => continue,
+        }
+    }
+
+    false
+}
+
+fn total_winnings(input: &str) -> u32 {
+    let mut lines: Vec<&str> = input.lines()
+        .map(|l| l.trim()).collect();
+    lines.sort_by(|&a, &b| {
+        let mut a = a.split_whitespace();
+        let mut b = b.split_whitespace();
+        let hand1 = a.next().unwrap();
+        let hand2 = b.next().unwrap();
+        match hand_is_better(hand1, hand2) {
+            true => Ordering::Greater,
+            false => Ordering::Less,
+        }
+    });
+
+    let mut total = 0;
+    for (i, line) in lines.iter().enumerate() {
+        let mut line = line.split_whitespace();
+        let hand = line.next().unwrap();
+        let bet = line.next().unwrap().parse::<u32>().unwrap();
+        total += (i as u32 + 1)*bet;
+    }
+
+    total
+}
+
 fn main() {
     let input  = include_str!("../input.txt");
-
+    let total = total_winnings(input);
+    println!("Total winnings: {}", total);
 
 }
 
@@ -97,6 +163,41 @@ mod tests {
             KK677 28
             KTJJT 220
             QQQJA 483";
+        
+    #[test]
+    fn test_total_winnings() {
+        let total = total_winnings(INPUT);
+        assert_eq!(total, 6440);
+    }
+
+
+    #[test]
+    fn test_ordering() {
+        let mut lines: Vec<&str> = INPUT.lines()
+            .map(|l| l.trim()).collect();
+        lines.sort_by(|&a, &b| {
+            let mut a = a.split_whitespace();
+            let mut b = b.split_whitespace();
+            let hand1 = a.next().unwrap();
+            let hand2 = b.next().unwrap();
+            match hand_is_better(hand1, hand2) {
+                true => Ordering::Greater,
+                false => Ordering::Less,
+            }
+        });
+
+        let expected = vec!["32T3K 765", "KTJJT 220", "KK677 28", "T55J5 684", "QQQJA 483"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn test_rank_hands() {
+        let hand1 = "KK677";
+        let hand2 = "KTJJT";
+        
+        assert!(hand_is_better(hand1, hand2));
+        assert!(!hand_is_better(hand2, hand1));
+    }
 
     #[test]
     fn test_hand_types() {
