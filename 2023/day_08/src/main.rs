@@ -1,7 +1,9 @@
-/*** Day 6
+/*** Day 8
  * 
  */
 
+use num::Integer;
+//  ?use num::integer::lcm;
 use std::collections::HashMap;
 use std::str::Lines;
 
@@ -21,21 +23,12 @@ fn parse_input(lines: Lines) -> HashMap<&str,(&str, &str)> {
     nodes
 }
 
-fn num_steps(input: &str) -> usize {
+fn count_steps(start_node: &str, end_nodes: &Vec<&str>, instructions: &str, network: &HashMap<&str, (&str, &str)>) -> usize {
     let mut steps = 0;
-
-    // parse input -- save the instructions
-    let mut lines = input.lines();
-    let instructions = lines.next().unwrap().trim();
-
-    lines.next();   // skip the blank lines
-    // build the network
-    let network = parse_input(lines);
-    let start_node = Some("AAA");
+    let mut curr_node = start_node;
 
     // run the instructions over network
-    let mut curr_node = start_node.unwrap();
-    while curr_node != "ZZZ" {
+    while !end_nodes.contains(&curr_node) {
         for dir in instructions.chars() {
             print!("{} ", curr_node);
             steps += 1;
@@ -46,13 +39,26 @@ fn num_steps(input: &str) -> usize {
                 _ => panic!("Invalid direction"),
             }
             
-            if curr_node == "ZZZ" {
+            if end_nodes.contains(&curr_node) {
                 return steps;
             }
         }
     }
 
     steps
+}
+
+fn num_steps(input: &str) -> usize {
+    // parse input -- save the instructions
+    let mut lines = input.lines();
+    let instructions = lines.next().unwrap().trim();
+
+    lines.next();   // skip the blank lines
+    // build the network
+    let network = parse_input(lines);
+    let end_nodes = vec!["ZZZ"]    ;
+
+    count_steps("AAA", &end_nodes, instructions, &network)
 }
 
 fn num_parallel_steps(input: &str) -> usize {
@@ -110,6 +116,44 @@ fn num_parallel_steps(input: &str) -> usize {
     steps
 }
 
+fn lcm_steps(input: &str) -> usize {
+    let mut lcm_steps = 0;
+
+    // parse input -- save the instructions
+    let mut lines = input.lines();
+    let instructions = lines.next().unwrap().trim();
+
+    lines.next();   // skip the blank lines
+    // build the network
+    let network = parse_input(lines);
+
+    // find vector of start nodes -- "**A"
+    // copy to current nodes vector
+
+    // get keys from network
+    let start_nodes: Vec<&str> = network.keys()
+            .filter(|s| s.ends_with("A"))
+            .map(|s| *s).collect();
+    let end_nodes: Vec<&str> = network.keys()
+            .filter(|s| s.ends_with("Z"))
+            .map(|s| *s).collect();
+
+    let mut steps: HashMap<&str, usize> = HashMap::new();
+    for start in start_nodes {
+        steps.insert(start, count_steps(start, &end_nodes, instructions, &network));
+    }
+
+    if steps.len() > 0 {
+        lcm_steps = 1;
+    }
+    for (n, s) in steps {
+        println!("{}: {}", n, s);
+        lcm_steps = s.lcm(&lcm_steps);
+    }
+
+    lcm_steps
+}
+
 fn main() {
     println!("Part 1");
     let input  = include_str!("../input.txt");
@@ -117,7 +161,8 @@ fn main() {
     println!("Number of steps: {}", steps);
 
     println!("Part 2");
-    let steps = num_parallel_steps(input);
+    // let steps = num_parallel_steps(input);
+    let steps = lcm_steps(input);
     println!("Number of steps: {}", steps);
 }
 
@@ -127,8 +172,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parallel_paths() {
-        let steps = num_parallel_steps(INPUT3);
+    fn test_part2() {
+        let input = include_str!("../input.txt");
+        let steps = lcm_steps(input);
+        assert_eq!(steps, 8811050362409);
+    
+    }
+
+    #[test]
+    fn test_lcm_paths() {
+        // let steps = num_parallel_steps(INPUT3);
+        let steps = lcm_steps(INPUT3);
         assert_eq!(steps, 6);
     }
 
