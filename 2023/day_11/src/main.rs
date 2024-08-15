@@ -1,6 +1,6 @@
-/*** Day 10
+/*** Day 11
  * 
- * Dijkstra's algorithm - run pair-wise
+ * Rectangular Distance - run pair-wise
  *  
  */
 
@@ -70,6 +70,24 @@ fn with_galaxy(g_ch: char) -> impl Fn(&str) -> Vec<(usize, usize)> {
     find_galaxies
 }
 
+fn rect_dist(galaxies: &Vec<(usize, usize)>) -> Vec<((usize, usize), usize)> {
+    let mut shortest_paths: Vec<((usize, usize), usize)> = Vec::new();
+
+    for (i, galaxy) in galaxies.iter().enumerate() {
+        for (j, other_galaxy) in galaxies.iter().enumerate() {
+            if j <= i {
+                continue;
+            }
+
+            let distance = (galaxy.0 as i32 - other_galaxy.0 as i32).abs() + (galaxy.1 as i32 - other_galaxy.1 as i32).abs(); 
+
+            shortest_paths.push(((i, j), distance as usize));
+        }
+    }
+
+    shortest_paths
+}
+
 fn main() {
     println!("Day 11");
     let input = include_str!("../input.txt");
@@ -93,6 +111,16 @@ mod tests {
         ..........
         .......#..
         #...#.....";
+
+    #[test]
+    fn test_sample_input() {
+        let galaxies = with_galaxy('#')(dialate_map(INPUT1).as_str());
+        let shortest_paths = rect_dist(&galaxies);
+
+        assert_eq!(shortest_paths.len(), 36);
+        let paths = shortest_paths.iter().map(|&x| x.1 as u64).collect::<Vec<u64>>();
+        assert_eq!(shortest_paths.iter().map(|&x| x.1 as u64).sum::<u64>(), 374);
+    }
 
     #[test]
     fn test_find_galaxies() {
