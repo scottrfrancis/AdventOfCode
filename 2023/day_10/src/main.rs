@@ -5,6 +5,7 @@
  */
 
 
+
 // enum for direction - NEWS
 #[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
 enum Direction {
@@ -183,6 +184,105 @@ fn find_farthest(map: &Vec<Vec<Node>>, start: (usize, usize)) -> (Option<(usize,
     (farthest, distance)
 }
 
+fn blocked(map: &Vec<Vec<Node>>, start: (usize, usize), dir: Direction) -> bool {
+    let mut is_blocked: Option<bool> = None;
+
+    let (dr, dc) = match dir {
+        Direction::North => (-1i32, 0),
+        Direction::South => (1, 0),
+        Direction::East => (0, 1),
+        Direction::West => (0, -1i32),
+    };
+    let comp_dir = match dir {
+        Direction::North => Direction::South,
+        Direction::South => Direction::North,
+        Direction::East => Direction::West,
+        Direction::West => Direction::East,
+    };
+
+    let cross_dir = match dir {
+        Direction::North => (Direction::East, Direction::West),
+        Direction::South => (Direction::West, Direction::East),
+        Direction::East => (Direction::South, Direction::North),
+        Direction::West => (Direction::South, Direction::North),
+    };
+    let mut pipe_connections = Vec::new();
+
+    let mut r = start.0 as i32;
+    let mut c = start.1 as i32;
+    while r >= 0 && r < map.len() as i32 && c >= 0 && c < map[r as usize ].len() as i32 && is_blocked.is_none() {
+        let node = &map[r as usize][c as usize];
+        for conn in &node.connections {
+            if *conn == comp_dir {
+                is_blocked = Some(false);
+                break;
+            }
+
+            pipe_connections.push(*conn);
+        }
+        if pipe_connections.contains(&cross_dir.0) && pipe_connections.contains(&cross_dir.1) {
+            is_blocked = Some(true);
+            break;
+        }
+
+        r += dr;
+        c += dc;
+    }
+
+    is_blocked.unwrap_or(false)
+}
+
+fn find_enclosed(map: &Vec<Vec<Node>>) -> usize {
+    let mut enclosed: Vec<(usize, usize)> = Vec::new();
+
+    /***
+     * build a collection of '.' nodes -- nodes with no connections
+     * 
+     * for each node in the collection, walk the cardinal directions (NESW)
+     * until you hit a complete block in that direction.
+     * a 'block' is a pipe node where the direction of traveral is not a connection
+     * or where two pipe nodes complement the direction
+     * 
+     * e.g. walking NORTH from a node, must encounter a pipe node with no connection to the SOUTH or north (E-W only)
+     * OR a pipe connection to the NORTH, followed by a pipe connection to the SOUTH where east and west are ALSO blocked
+     * 
+     * so... walking NORTH
+     *  '-' blocks and you're done
+     *  '7' or 'F' means your in a pipe -- they are open to the SOUTH 
+     *  'L' or 'J' means you've hit a corner and need to hit a complementary corner otherwise it's open
+     *      - each of these are open to the EAST OR WEST, but not both... so there needs to be a 
+     *          later pipe that is open to the complementary direction (east or west)
+     *      - for 'L' you need to hit a 'J' or '7' 
+     *      - for 'J' you need to hit a 'L' or 'F'
+     */
+
+    // find non-pipe nodes
+    let mut non_pipes = Vec::new();
+    for (r, row) in map.iter().enumerate() {
+        for (c, node) in row.iter().enumerate() {
+            if !node.connects_to(Direction::North) &&
+                !node.connects_to(Direction::South) &&
+                !node.connects_to(Direction::East) &&
+                !node.connects_to(Direction::West) {
+                    non_pipes.push((r, c));
+                }
+        }
+    }
+
+    // walk each non-pipe node to N E S W 
+    let mut enclosed = Vec::new();
+    for n in non_pipes {
+        if blocked(map, n, Direction::North) &&
+            blocked(map, n, Direction::East) &&
+            blocked(map, n, Direction::South) &&
+            blocked(map, n, Direction::West) {
+                enclosed.push(n);
+        }
+    }
+
+    enclosed.len()
+}
+
 fn main() {
     println!("Part 1");
     let input = include_str!("../input.txt");
@@ -204,8 +304,8 @@ mod tests {
         let (map, start) = parse_map(INPUT4);
         assert_eq!(start, Some((1, 1)));
 
-        let enclosures = find_enclosed(&map);
-        assert_eq!(enclosures.len(), 2);
+        let num_enclosed = find_enclosed(&map);
+        assert_eq!(num_enclosed, 4);
     }
 
 
