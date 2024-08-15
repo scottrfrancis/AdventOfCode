@@ -90,9 +90,15 @@ fn rect_dist(galaxies: &Vec<(usize, usize)>) -> Vec<((usize, usize), usize)> {
 
 fn main() {
     println!("Day 11");
+
+    println!("Part 1");
     let input = include_str!("../input.txt");
-    let dialated = dialate_map(input);
- 
+    
+    let galaxies = with_galaxy('#')(dialate_map(input).as_str());
+    let shortest_paths = rect_dist(&galaxies);
+
+    let sum_paths = shortest_paths.iter().map(|&x| x.1 as u64).sum::<u64>();
+    println!("Sum of shortest paths: {}", sum_paths);
 }
 
 
