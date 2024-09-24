@@ -54,6 +54,7 @@ fn is_good_line(map_row: &[char], run_row: &[usize]) -> bool {
     run_lengths == run_row
 }
 
+#[allow(dead_code)]
 // make a memoized version of this function
 fn memoize(f: fn(&[char], &[usize]) -> bool) -> impl FnMut(&[char], &[usize]) -> bool {
     let mut memo = std::collections::HashMap::new();
@@ -66,70 +67,91 @@ fn memoize(f: fn(&[char], &[usize]) -> bool) -> impl FnMut(&[char], &[usize]) ->
     }
 }
 
-fn replace_chars(map_row: &[char], mask: &Vec<bool>, replacements: Vec<char>) -> Vec<char> {
-    let mut new_row = map_row.to_vec();
-    let mut replacement_chars = replacements.clone();
+// get the index of the next '?' value in the array
+fn next_unknown(row: &[char], idx: usize) -> usize {
+    // row.iter().skip(idx).position(|&ch| ch == '?').unwrap_or(row.len())
+    // let idx = row.len();        // aka flag for not found
 
-    for i in 0..map_row.len() {
-        if mask[i] {
-            new_row[i] = replacement_chars.pop().unwrap();
+    for i in idx..row.len() {
+        if row[i] == '?' {
+            return i;
         }
-    }
+    }  
 
-    new_row
+    row.len()
 }
 
-fn replacements_for_idx(n: usize, len: usize) -> Vec<char> {
-    // create vector of length len, with n as binary 1s and the rest as binary 0s
-    let mut replacements: Vec<char> = vec!['.'; len];
-    // consider n as a binary mask on the index of replacements, 
-    // set the bits that are set in n to '#'
-    for i in 0..len {
-        if n & (1 << i) != 0 {
-            replacements[i] = '#';
-        }
-    }
+fn count_dfs_permutations(map_row: &[char], run_row: &[usize]) -> usize {
+    struct DFS<'s> {
+        map_row: &'s [char],
+        perm_row: &'s mut [char],
+        run_row: &'s [usize],
+        count: usize,
 
-    replacements
+        f: &'s dyn Fn(&mut DFS, usize) -> (),
+    }
+    let mut dfs = DFS {
+        f: &|dfs:&mut DFS<'_>, idx: usize| -> () {
+            // check if we're done
+            let perm_unknowns = dfs.perm_row.iter().filter(|&ch| *ch == '?').count();
+            if perm_unknowns == 0 {
+                if is_good_line(&dfs.perm_row, dfs.run_row) {
+                    dfs.count += 1;
+                }
+                return;
+            }
+
+            // make a choice, recurse
+            dfs.perm_row[idx] = '#';
+            (dfs.f)(dfs, next_unknown(dfs.map_row, idx + 1));
+            dfs.perm_row[idx] = '.';
+            (dfs.f)(dfs, next_unknown(dfs.map_row, idx + 1));
+            // if we're here, we're done with this choice, backtrack
+            dfs.perm_row[idx] = '?';
+        },
+
+        count: 0,
+        perm_row: &mut map_row.to_vec(),
+        run_row: run_row,
+        map_row: map_row,
+    };
+
+    (dfs.f)(&mut dfs, next_unknown(&map_row, 0));
+
+    dfs.count
 }
 
-
-fn count_successful_permutations<F>(map_row: &[char], run_row: &[usize], mut validator: F) -> usize 
-where
-    F: FnMut(&[char], &[usize]) -> bool,
-{
-    let mut count = 0;
-   
-    let mask: Vec<bool> = map_row.iter().map(|&ch| ch == '?').collect();
-    let num_to_try = mask.iter().filter(|&&b| b).count();
-        
-    if num_to_try == 0 {
-        return if validator(map_row, run_row) { 1 } else { 0 };
+fn unfold_row(text_row: &str) -> String {
+    let (map_row, run_row) = parse_line(text_row);
+    // make 5 copeis of the map row
+    let mut unfolded_map = Vec::new();
+    let mut unfolded_runs = Vec::new();
+    for _i in 0..5 {
+        unfolded_map.push(map_row.clone());
+        unfolded_runs.push(run_row.clone());
     }
     
-    let mut try_count = usize::pow(2, num_to_try as u32);
-    while try_count > 0 {
-        let replacements = replacements_for_idx(try_count - 1, num_to_try);
-        let test_row = replace_chars(map_row, &mask, replacements);
-        // print!("{:?} ", test_row); 
-        if validator(&test_row, run_row) {
-            count += 1;
-        }
+    // join the unfolded vectors to strings
+    let unfolded_map_str: Vec<String> = unfolded_map.iter().map(|row| row.iter().collect()).collect();
+    let unfolded_runs_str: Vec<String> = unfolded_runs.iter().map(|row| row.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(",")).collect();
 
-        try_count -= 1;
-    }
-
-    count
+    // join the two strings with a space
+    let unfolded_map_str = unfolded_map_str.join("?");
+    let unfolded_runs_str = unfolded_runs_str.join(",");
+    let unfolded_row = unfolded_map_str + " " + &unfolded_runs_str;
+    
+    unfolded_row
 }
 
 fn sum_possible_arrangements(input: &str) -> usize {
     let (spring_map, run_lengths) = parse_input(input);
     let mut total = 0;
     // let mut validator = memoize(is_good_line);
-    let mut validator = is_good_line;
+    // let mut validator = is_good_line;
 
     for (map_row, run_row) in spring_map.iter().zip(run_lengths.iter()) {
-        total += count_successful_permutations(map_row, run_row, &mut validator);
+        // total += count_successful_permutations(map_row, run_row, &mut validator);
+        total += count_dfs_permutations(map_row, run_row);
     }
 
     total
@@ -144,12 +166,21 @@ fn main() {
     println!("{} \n", result);
     
     println!("Part 2");
-    
-}
+    let mut unfolded_lines = Vec::new();
+    for line in input.lines() {
+        let unfolded_row = unfold_row(line);
+        // append unfolded row to unfolded input       
+        unfolded_lines.push(unfolded_row);
+    }
 
+    let unfolded_input = unfolded_lines.join("\n");
+    let result = sum_possible_arrangements(&unfolded_input.as_str());    
+    println!("{} \n", result);
+}
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
     use super::*;
 
     const INPUT1: &str = 
@@ -159,6 +190,55 @@ mod tests {
         ????.#...#... 4,1,1
         ????.######..#####. 1,6,5
         ?###???????? 3,2,1";
+
+    #[test]
+    fn test_next_unknown() {
+        let row = vec!['#', '?', '.', '?', '#', '?', '?', '#'];
+        let idx = next_unknown(&row, 0);
+        assert_eq!(idx, 1);
+
+        let idx = next_unknown(&row, idx + 1);
+        assert_eq!(idx, 3);
+
+        let row = vec!['?', '?', '#', '#', '?', '#', '#', '?'];
+        let idx = next_unknown(&row, 0);
+        assert_eq!(idx, 0);
+
+        let idx = next_unknown(&row, idx + 1);
+        assert_eq!(idx, 1);
+
+        let idx = next_unknown(&row, idx + 1);
+        assert_eq!(idx, 4);
+
+        let idx = next_unknown(&row, idx + 1);
+        assert_eq!(idx, 7);
+
+        let row = vec!['#', '#', '#', '#', '#', '#', '#', '#'];
+        let idx = next_unknown(&row, 0);
+        assert_eq!(idx, 8);
+    }   
+
+    #[test]
+    fn test_unfolded_sample() {
+        let input = INPUT1;
+        let mut unfolded_lines = Vec::new();
+        for line in input.lines() {
+            let unfolded_row = unfold_row(line);
+            // append unfolded row to unfolded input       
+            unfolded_lines.push(unfolded_row);
+        }
+
+        let unfolded_input = unfolded_lines.join("\n");
+        let result = sum_possible_arrangements(&unfolded_input.as_str());
+        assert_eq!(result, 525152);
+    }
+
+    #[test]
+    fn test_unfold_line() {
+        let text_row = ".# 1";
+        let unfolded_row = unfold_row(text_row);
+        assert_eq!(unfolded_row, ".#?.#?.#?.#?.# 1,1,1,1,1");
+    }
 
     #[test]
     fn test_part1() {
@@ -203,20 +283,20 @@ mod tests {
         let input = "???.### 1,1,3";
         let (map_row, run_row) = parse_line(input);
 
-        let n = count_successful_permutations(&map_row, &run_row, is_good_line);
+        let n = count_dfs_permutations(&map_row, &run_row); //, is_good_line);
         assert_eq!(n, 1);
     }
 
-    #[test]
-    fn test_memoized_validator() {
-        let input = INPUT0;
-        let (spring_map, run_lengths) = parse_input(input);
+    // #[test]
+    // fn test_memoized_validator() {
+    //     let input = INPUT0;
+    //     let (spring_map, run_lengths) = parse_input(input);
 
-        let mut validator = memoize(is_good_line);
-        for (map_row, run_row) in spring_map.iter().zip(run_lengths.iter()) {
-            assert!(validator(map_row, run_row));
-        }
-    }
+    //     let mut validator = memoize(is_good_line);
+    //     for (map_row, run_row) in spring_map.iter().zip(run_lengths.iter()) {
+    //         assert!(validator(map_row, run_row));
+    //     }
+    // }
 
     #[test]
     fn test_sample_input() {
