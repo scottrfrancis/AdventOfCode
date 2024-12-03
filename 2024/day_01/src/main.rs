@@ -64,12 +64,78 @@ fn sum_distances(input: &str) -> i32 {
     sum
 }
 
+fn column_term_frequencies(df: &DataFrame, column_name: &str) -> DataFrame {
+    let binding = df.column(column_name).unwrap().clone();
+    let series = binding.as_series().unwrap();
+
+    let tf = series.value_counts(true, true, "count".into(), false).unwrap();
+    // let term_bind = tf.column(column_name).unwrap().clone();
+    // let terms = term_bind.as_series().unwrap();
+    // let counts_bind = tf.column("count").unwrap().clone();
+    // let counts = counts_bind.as_series().unwrap();
+    // for (term, count) in terms.iter().zip(counts.iter()) {
+    //     println!("{}: {}", term, count);
+    // }    
+
+    tf
+}
+
+fn get_term_frequency(tf: &DataFrame, term: i32) -> i32 {
+    let cols = tf.get_columns();
+    let terms = cols[0].as_series().unwrap();
+
+    // find index of term in terms
+    let mask = terms.equal(term).unwrap();
+
+    let counts = cols[1].as_series().unwrap();
+    // get the count at the true value of the mask
+    let count = counts.filter(&mask).unwrap().sum::<i32>().unwrap();
+    
+    count
+}
+
+fn get_frequencies(tf: &DataFrame, terms: &Series) -> Series {
+    let mut weights = Vec::new();
+
+    for term in terms.iter() {
+        if let AnyValue::Int32(t) = term {
+            let f = get_term_frequency(tf, t);
+            weights.push(f);
+        }
+    }
+
+    Series::new("weights".into(), weights)
+}
+
+fn get_similarity_score(df: &DataFrame, x_col: &str, y_col: &str) -> i32 {
+    let tf = column_term_frequencies(&df, y_col);
+    let terms_bind = df.column(x_col).unwrap().clone();
+    let terms = terms_bind.as_series().unwrap();
+
+    let weights = get_frequencies(&tf, &terms);
+
+    // take dot product of weights and terms
+    let sum: i32 = terms.i32()
+        .unwrap()
+        .into_iter()
+        .zip(weights.i32().unwrap().into_iter())
+        .map(|(x, w)| x.unwrap() * w.unwrap())
+        .sum();
+
+    sum
+}
+
 fn main() {
     // read input file
     let input = include_str!("../input.txt");
+    // part 1
     let sum = sum_distances(input);
-
     println!("Sum of calibration values: {}", sum);
+
+    // part 2
+    let df = read_input(input);
+    let sum = get_similarity_score(&df, "x", "y");
+    println!("Similarity score: {}", sum);
 }
 
 
@@ -77,6 +143,73 @@ fn main() {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_part2() {
+        let input = include_str!("../input.txt");
+        let df = read_input(input);
+        let sum = get_similarity_score(&df, "x", "y");
+
+        assert_eq!(sum, 21024792);
+    }
+
+    #[test]
+    fn test_similarity_score() {
+        let df = read_input(INPUT);
+        let tf = column_term_frequencies(&df, "y");
+
+        let terms_bind = df.column("x").unwrap().clone();
+        let terms = terms_bind.as_series().unwrap();
+
+        let weights = get_frequencies(&tf, &terms);
+
+        assert_eq!(weights.len(), 6);
+        for i in 0..6 {
+            let x: i32 = match terms.get(i).unwrap() {
+                AnyValue::Int32(v) => v,
+                _ => panic!("Unexpected data type"),
+            };
+            let w: i32 = match weights.get(i).unwrap() {
+                AnyValue::Int32(v) => v,
+                _ => panic!("Unexpected data type"),
+            };
+
+            println!("x: {}, w: {}", x, w);
+            match x {
+                3 => assert_eq!(w, 3),
+                4 => assert_eq!(w, 1),
+                5 => assert_eq!(w, 1),
+                9 => assert_eq!(w, 1),
+                _ => assert_eq!(w, 0),
+            }
+        }
+
+        // take dot product of weights and terms
+        let sum: i32 = terms.i32()
+            .unwrap()
+            .into_iter()
+            .zip(weights.i32().unwrap().into_iter())
+            .map(|(x, w)| x.unwrap() * w.unwrap())
+            .sum();
+        assert_eq!(sum, 31);
+    }
+
+    #[test]
+    fn test_term_frequency() {
+        // let input = include_str!("../input.txt");
+        let df = read_input(INPUT);
+
+        let tf = column_term_frequencies(&df, "y");
+
+        assert_eq!(tf.shape(), (4, 2));
+    
+        assert_eq!(get_term_frequency(&tf, 3), 3);
+        for x in [ 4, 5, 9].iter() {
+            let f = get_term_frequency(&tf, *x);
+            assert_eq!(f, 1);
+        }
+        
+        assert_eq!(get_term_frequency(&tf, 2), 0);
+    }
     #[test]
     fn test_part1() {
         let input = include_str!("../input.txt");
