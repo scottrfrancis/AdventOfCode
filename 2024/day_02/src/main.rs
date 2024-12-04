@@ -9,25 +9,38 @@ fn parse_line(line: &str) -> Vec<i32> {
     row
 }
 
-fn is_level_safe(level: Vec<i32>, threshold: i32, tolerance:i32) -> bool {
+fn is_level_safe(level: Vec<i32>, threshold: i32) -> bool {
     let dr = level.windows(2)
         .map(|x| (x[0] - x[1]))
         .collect::<Vec<i32>>();
+    let length = dr.len();
 
     // are all values in dr positive or zero?
-    let is_increasing_order = dr.iter()
+    let increasing_count = dr.iter()
         .map(|x| x > &0)
         .collect::<Vec<bool>>()
         .into_iter()
-        .all(|x| x);
+        .filter(|x| *x)
+        .count();
 
-    let is_decreasing_order = dr.iter()
+    let decreasing_count = dr.iter()
         .map(|x| x < &0)
         .collect::<Vec<bool>>()
         .into_iter()
-        .all(|x| x);
+        .filter(|x| *x)
+        .count();
 
-    if !is_increasing_order && !is_decreasing_order {
+    let zero_count = dr.iter()
+        .map(|x| x == &0)
+        .collect::<Vec<bool>>()
+        .into_iter()
+        .filter(|x| *x)
+        .count();
+
+    let min_valid = length;
+    if (zero_count > 0) ||
+        ((increasing_count < min_valid) &&
+        (decreasing_count < min_valid)) {
         return false;
     }
 
@@ -37,9 +50,8 @@ fn is_level_safe(level: Vec<i32>, threshold: i32, tolerance:i32) -> bool {
         .into_iter()
         .sum();
     
-    result <= tolerance
+    result == 0
 }
-
 
 fn main() {
     // read input file
@@ -49,7 +61,7 @@ fn main() {
     let mut safe_levels = 0;
     for line in input.lines() {
         let row = parse_line(line);
-        if is_level_safe(row, 3, 0) {
+        if is_level_safe(row, 3) {
             safe_levels += 1;
         }
     }
@@ -59,8 +71,13 @@ fn main() {
     let mut safe_levels = 0;
     for line in input.lines() {
         let row = parse_line(line);
-        if is_level_safe(row, 3, 1) {
-            safe_levels += 1;
+        for i in 0..row.len() {
+            let mut slice = row.clone();
+            slice.remove(i);
+            if is_level_safe(slice.to_vec(), 3) {
+                safe_levels += 1;
+                break;
+            }
         }
     }
     println!("Safe levels: {}", safe_levels);
@@ -72,12 +89,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_choose_n_safe() {
+        let input = INPUT;
+        let mut safe_levels = 0;
+        for line in input.lines() {
+            let row = parse_line(line);
+            for i in 0..row.len() {
+                let mut slice = row.clone();
+                slice.remove(i);
+                if is_level_safe(slice.to_vec(), 3) {
+                    safe_levels += 1;
+                    break;
+                }
+            }
+        }
+        assert_eq!(safe_levels, 4);
+    }
+
+    #[test]
     fn test_part1() {
         let input = include_str!("../input.txt");
         let mut safe_levels = 0;
         for line in input.lines() {
             let row = parse_line(line);
-            if is_level_safe(row, 3, 0) {
+            if is_level_safe(row, 3) {
                 safe_levels += 1;
             }
         }
@@ -90,7 +125,7 @@ mod tests {
 
         for line in INPUT.lines() {
             let row = parse_line(line);
-            if is_level_safe(row, 3, 0) {
+            if is_level_safe(row, 3) {
                 safe_levels += 1;
             }
         }
@@ -102,14 +137,14 @@ mod tests {
     fn test_threshold() {
         // let dr = vec![1, 2, 2, 1];
         let threshold = 1;
-        let result = is_level_safe(vec![7, 6, 4, 2, 1], threshold, 0);
+        let result = is_level_safe(vec![7, 6, 4, 2, 1], threshold);
         assert_eq!(result, false);
 
-        assert!(!is_level_safe(vec![1, 2, 7, 8, 9], 3, 0));
-        assert!(!is_level_safe(vec![9, 7, 6, 2, 1], 3, 0));
-        assert!(!is_level_safe(vec![1, 3, 2, 4, 5], 3, 0));
-        assert!(!is_level_safe(vec![8, 6, 4, 4, 1], 3, 0));
-        assert!(is_level_safe(vec![1, 3, 6, 7, 9], 3, 0));
+        assert!(!is_level_safe(vec![1, 2, 7, 8, 9], 3));
+        assert!(!is_level_safe(vec![9, 7, 6, 2, 1], 3));
+        assert!(!is_level_safe(vec![1, 3, 2, 4, 5], 3));
+        assert!(!is_level_safe(vec![8, 6, 4, 4, 1], 3));
+        assert!( is_level_safe(vec![1, 3, 6, 7, 9], 3));
     }
 
     #[test]

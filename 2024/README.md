@@ -2,4 +2,5 @@
 
 | day | Algos | Notes |
 | --- | --- | --- |
-| 01 | Min Heap | |
+| 01 | Min Heap | some relevance to Jaccard Similarity and Distances |
+| 02 | Derivatvies | also mask and pick combinations |

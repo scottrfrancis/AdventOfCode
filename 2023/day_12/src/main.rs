@@ -82,45 +82,55 @@ fn next_unknown(row: &[char], idx: usize) -> usize {
 }
 
 fn count_dfs_permutations(map_row: &[char], run_row: &[usize]) -> usize {
-    struct DFS<'s> {
-        map_row: &'s [char],
-        perm_row: &'s mut [char],
-        run_row: &'s [usize],
-        count: usize,
+    // let mut dfs = fun_name(map_row, run_row);
+    let mut count = 0;
+    // let counter_f = count_valid_permutations_dfs;
 
-        f: &'s dyn Fn(&mut DFS, usize) -> (),
-    }
-    let mut dfs = DFS {
-        f: &|dfs:&mut DFS<'_>, idx: usize| -> () {
-            // check if we're done
-            let perm_unknowns = dfs.perm_row.iter().filter(|&ch| *ch == '?').count();
-            if perm_unknowns == 0 {
-                if is_good_line(&dfs.perm_row, dfs.run_row) {
-                    dfs.count += 1;
-                }
-                return;
-            }
+    count += permute_unknowns_count_valids(map_row, run_row);
 
-            // make a choice, recurse
-            dfs.perm_row[idx] = '#';
-            (dfs.f)(dfs, next_unknown(dfs.map_row, idx + 1));
-            dfs.perm_row[idx] = '.';
-            (dfs.f)(dfs, next_unknown(dfs.map_row, idx + 1));
-            // if we're here, we're done with this choice, backtrack
-            dfs.perm_row[idx] = '?';
-        },
-
-        count: 0,
-        perm_row: &mut map_row.to_vec(),
-        run_row: run_row,
-        map_row: map_row,
-    };
-
-    (dfs.f)(&mut dfs, next_unknown(&map_row, 0));
-
-    dfs.count
+    count
 }
 
+// this is the fn i can memoize
+fn permute_unknowns_count_valids(map_row: &[char], run_row: &[usize]) -> usize {
+    // let mut perm_row = map_row.to_vec();
+
+    // memoize this function
+    let mut memo = std::collections::HashMap::new();
+    let key = (map_row.to_vec(), run_row.to_vec());
+    if !memo.contains_key(&key) {
+        let perm_row = map_row.to_vec();
+        memo.insert(key.clone(), count_valid_permutations_dfs(&perm_row, run_row));
+    }
+    memo[&key]
+}
+
+// this can be memoized
+fn count_valid_permutations_dfs(map_row: &[char], run_row: &[usize]) -> usize {
+    let perm_unknowns = map_row.iter().filter(|&ch| *ch == '?').count();
+    if perm_unknowns == 0 {
+        if is_good_line(map_row, run_row) {
+            return 1;
+        }
+        return 0;
+    }
+
+    // make a choice, recurse
+    // copy the perm_row so i can mutate it
+    let mut new_row = map_row.to_vec();
+    let idx = next_unknown(&new_row, 0);
+    let mut count = 0;
+    new_row[idx] = '#';
+    count += count_valid_permutations_dfs(&new_row, run_row);
+    new_row[idx] = '.';
+    count += count_valid_permutations_dfs(&new_row, run_row);
+    // if we're here, we're done with this choice, backtrack
+    // dfs.perm_row[idx] = '?';
+
+    count
+}
+
+#[allow(dead_code)]
 fn unfold_row(text_row: &str) -> String {
     let (map_row, run_row) = parse_line(text_row);
     // make 5 copeis of the map row
@@ -151,6 +161,7 @@ fn sum_possible_arrangements(input: &str) -> usize {
 
     for (map_row, run_row) in spring_map.iter().zip(run_lengths.iter()) {
         // total += count_successful_permutations(map_row, run_row, &mut validator);
+        println!("{}\n", map_row.iter().collect::<String>());
         total += count_dfs_permutations(map_row, run_row);
     }
 
