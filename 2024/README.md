@@ -4,4 +4,4 @@
 | --- | --- | --- |
 | 01 | Min Heap | some relevance to Jaccard Similarity and Distances |
 | 02 | Derivatvies | also mask and pick combinations |
-| 03 | RegEx, virt machine | |
+| 03 | RegEx, virt machine | find and sort multiple regex matches |
