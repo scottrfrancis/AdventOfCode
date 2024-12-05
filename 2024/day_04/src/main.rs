@@ -136,6 +136,50 @@ fn count_in_grid(grid: &Grid<char>, target: &str) -> usize {
     count
 }
 
+fn get_x_strings_centered_on_point(grid: &Grid<char>, x: usize, y: usize, n: usize) -> Vec<String> {
+    let mut strings = Vec::new();
+    let width = grid.width;
+    let height = grid.height;
+
+    if x < n/2 || y < n/2 || x >= width - n/2 || y >= height - n/2 {
+        return strings;
+    }
+
+    // NW - SE
+    let start: i32 = -(n as i32)/2;
+    let stop: i32 = (n as i32)/2;
+    let s: String = (start..=stop).map(|i| grid.cells[(y as i32 + i) as usize][(x as i32 + i) as usize]).collect();
+    strings.push(s);
+    // strings.push(s.chars().rev().collect());
+
+    // SW - NE
+    let s: String = (start..=stop).map(|i| grid.cells[(y as i32 - i) as usize][(x as i32 + i) as usize]).collect();
+    strings.push(s);
+    // strings.push(s.chars().rev().collect());
+
+    strings
+}
+
+fn count_x_mas(grid: &Grid<char>) -> usize {
+    let mut count = 0;
+    for y in 1..grid.height - 1 {
+        for x in 1..grid.width - 1 {
+            let ch = grid.cells[y][x];
+            if ch != 'A' {
+                continue;
+            }
+            let strings = get_x_strings_centered_on_point(&grid, x, y, 3);
+            assert!(strings.len() == 2);
+            
+            if (strings[0] == "MAS" || strings[0] == "SAM") &&
+               (strings[1] == "SAM" || strings[1] == "MAS") {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
 fn main() {
     let input = include_str!("../input.txt");
     let grid = build_grid(input);
@@ -152,7 +196,7 @@ fn main() {
             let strings = get_strings_around_point(&grid, x, y, 4);
             for s in strings {
                 if s == "XMAS" {
-                    println!("Found XMAS at ({}, {})", x, y);
+                    // println!("Found XMAS at ({}, {})", x, y);
                     count += 1;
                 }
             }
@@ -160,12 +204,46 @@ fn main() {
     }
 
     println!("Found {} instances of XMAS", count);
+
+    let count = count_x_mas(&grid);
+    println!("Found {} instances of X-MAS", count);
 }
 
 // tests
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_part2() {
+        let input = include_str!("../input.txt");
+        let grid = build_grid(input);
+        let count = count_x_mas(&grid);
+        assert_eq!(count, 1824);
+    }
+
+    #[test]
+    fn test_count_x_mas() {
+        let grid = build_grid(SAMPLE);
+        println!("{}", grid);
+
+        let count = count_x_mas(&grid);
+        assert_eq!(count, 9);
+    }
+
+    #[test]
+    fn test_center_strings() {
+        let grid = build_grid(SAMPLE);
+        println!("{}", grid);
+
+        let strings = get_x_strings_centered_on_point(&grid, 3, 3, 3);
+        assert_eq!(strings.len(), 2);
+
+        let strings = get_x_strings_centered_on_point(&grid, 2, 1, 3);
+        assert_eq!(strings.len(), 2);
+        assert!(strings[0] == "MAS" || strings[0] == "SAM");
+        assert!(strings[1] == "MAS" || strings[1] == "SAM");
+    }
 
     #[test]
     fn test_part1() {
